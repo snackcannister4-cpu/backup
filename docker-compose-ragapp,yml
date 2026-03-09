@@ -1,0 +1,63 @@
+version: '3.8'
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    environment:
+      - TZ=Europe/London
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  rag-app:
+    image: ghcr.io/snackcannister4-cpu/my_rag_app:latest
+    container_name: rag-app
+    restart: "no"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - CUDA_VISIBLE_DEVICES=""  # ADD THIS LINE
+      - OLLAMA_HOST=http://ollama:11434
+      - HF_HUB_OFFLINE=1
+      - TRANSFORMERS_OFFLINE=1
+      - PYTHONUNBUFFERED=1
+      - VECTOR_DB_DIR=/app/vector_db
+    volumes:
+      - ./data:/app/data
+      - ./vector_db:/app/vector_db
+      - ./model_cache:/home/appuser/.cache/huggingface/hub
+    depends_on:
+      - ollama
+    tty: true
+
+volumes:
+  portainer_data:
+  ollama-models:
+user@DESKTOP-UMPHFDA:~/rag-deployment$
